@@ -1,12 +1,85 @@
-# Repomix Hello World
+# Timewave Condenser
 
-This is a simple example of using [Repomix](https://github.com/yamadashy/repomix) to pack a repository into a single file for use with AI systems like Claude, ChatGPT, and other LLMs.
+A powerful tool that uses [Repomix](https://github.com/yamadashy/repomix) to condense Git repositories into single files for AI analysis.
 
-## Setup with Nix
+## Quick Start
+
+You can run Timewave Condenser directly from GitHub with a single command (requires [Nix](https://nixos.org/download.html) with flakes enabled):
+
+```bash
+# For public repositories
+nix run github:timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -o /path/to/output
+
+# For private repositories (using SSH)
+nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -o /path/to/output
+```
+
+## Usage
+
+```bash
+# Basic usage (private repo via SSH)
+nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -o /path/to/output
+
+# With custom configuration file
+nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -c /path/to/config.json -o /path/to/output
+
+# Change output format (markdown, plain, xml)
+nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -f plain -o /path/to/output
+
+# Enable code compression and comment removal
+nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo --compress --remove-comments -o /path/to/output
+
+# Show help
+nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- help
+```
+
+## Accessing Private Repositories
+
+If the timewave-condenser repository is private, you need to use SSH authentication:
+
+```bash
+nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- [commands]
+```
+
+This method uses your SSH key to authenticate with GitHub, which is necessary for private repositories.
+
+### Setting up a Convenient Alias
+
+To make using the tool easier, you can add an alias to your shell configuration (~/.bashrc, ~/.zshrc, etc.):
+
+```bash
+# For public repos
+alias timewave-condenser='nix run github:timewave-computer/timewave-condenser --'
+
+# For private repos via SSH
+alias timewave-condenser='nix run git+ssh://git@github.com/timewave-computer/timewave-condenser --'
+```
+
+Then you can simply run:
+
+```bash
+timewave-condenser pack -r /path/to/your/repo -o /path/to/output
+```
+
+## Options
+
+- `-r, --repository PATH` - Path to the git repository to pack (required)
+- `-c, --config PATH` - Path to a Repomix configuration file (optional)
+- `-o, --output PATH` - Directory where output will be saved (default: ./output)
+- `-f, --format FORMAT` - Output format: markdown, plain, xml (default: markdown)
+- `--compress` - Enable code compression
+- `--remove-comments` - Remove comments from code
+- `--no-security-check` - Disable security check
+
+## Development Setup
 
 This project includes a Nix flake for easy setup:
 
 ```bash
+# Clone the repository
+git clone git@github.com:timewave-computer/timewave-condenser.git
+cd timewave-condenser
+
 # Enter the development shell
 nix develop
 
@@ -15,9 +88,9 @@ nix develop
 npm install
 ```
 
-## Running the Example
+### Running the Example
 
-Once in the development shell, you can run the example with:
+Once in the development shell, you can run a simple example with:
 
 ```bash
 npm start
@@ -33,32 +106,10 @@ To clean up the generated file:
 npm run clean
 ```
 
-## Important Note
+## Configuration
 
-Repomix requires a directory named `pack` to exist in the project root when using the `pack` command. This is handled automatically by the npm scripts.
+See the [Repomix documentation](https://repomix.com/guide/usage) for details on configuration options.
 
-## How It Works
+## License
 
-The Repomix CLI packs the repository with these features:
-
-1. It targets the current directory to be packed
-2. Ignores common directories like node_modules and .git (configured in .repomixignore)
-3. Outputs the packed representation as a markdown file
-
-You can modify the options in repomix.config.json to customize the behavior according to your needs.
-
-## Without Nix
-
-If you're not using Nix:
-
-```bash
-# Install dependencies
-npm install
-
-# Run the example
-npm start
-```
-
-## Documentation
-
-For more detailed documentation about Repomix, visit the [official repository](https://github.com/yamadashy/repomix). 
+MIT 

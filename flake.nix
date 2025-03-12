@@ -32,9 +32,6 @@
             exit 0
           fi
           
-          # Ensure NPM and Node are available
-          export PATH="${pkgs.nodejs_20}/bin:${pkgs.nodePackages.npm}/bin:$PATH"
-          
           # Parse arguments
           REPO_PATH=""
           OUTPUT_PATH=""
@@ -68,31 +65,54 @@
             exit 1
           fi
           
+          # Convert to absolute paths
+          REPO_PATH=$(realpath "$REPO_PATH")
+          OUTPUT_PATH=$(realpath "$OUTPUT_PATH")
+          
           if [ ! -d "$REPO_PATH" ]; then
             echo "Error: Repository path '$REPO_PATH' doesn't exist"
             exit 1
           fi
           
-          # Create required directories
+          # Create output directory if it doesn't exist
           mkdir -p "$OUTPUT_PATH"
-          mkdir -p "$REPO_PATH/pack"
           
-          # Install repomix locally (this environment is already ephemeral)
+          # Create a temporary working directory
+          TEMP_DIR=$(mktemp -d)
+          cd "$TEMP_DIR"
+          
+          # Ensure cleanup on exit
+          trap 'rm -rf "$TEMP_DIR"' EXIT
+          
+          # Create the structure Repomix expects
+          mkdir -p pack
+          
+          # Ensure NPM and Node are available
+          export PATH="${pkgs.nodejs_20}/bin:${pkgs.nodePackages.npm}/bin:$PATH"
+          
+          # Install repomix in the temporary directory
           echo "Installing repomix..."
           npm install repomix
           
           # Execute repomix using the local installation
           echo "Running repomix..."
+          EXIT_CODE=0
           if [ -f "./node_modules/.bin/repomix" ]; then
-            ./node_modules/.bin/repomix pack "$REPO_PATH" -o "$OUTPUT_PATH/output.$FORMAT" --style "$FORMAT" $CONFIG $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK
+            ./node_modules/.bin/repomix pack "$REPO_PATH" -o "$OUTPUT_PATH/output.$FORMAT" --style "$FORMAT" $CONFIG $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
           elif [ -f "./node_modules/repomix/bin/repomix.js" ]; then
-            node "./node_modules/repomix/bin/repomix.js" pack "$REPO_PATH" -o "$OUTPUT_PATH/output.$FORMAT" --style "$FORMAT" $CONFIG $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK
+            node "./node_modules/repomix/bin/repomix.js" pack "$REPO_PATH" -o "$OUTPUT_PATH/output.$FORMAT" --style "$FORMAT" $CONFIG $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
           else
             echo "Error: Cannot find repomix executable."
             exit 1
           fi
           
-          echo "Pack completed successfully! Output saved to: $OUTPUT_PATH/output.$FORMAT"
+          # Check if repomix succeeded
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "Pack completed successfully! Output saved to: $OUTPUT_PATH/output.$FORMAT"
+          else
+            echo "Error: Repomix failed with exit code $EXIT_CODE"
+            exit $EXIT_CODE
+          fi
         '';
 
         # Define the package
@@ -102,6 +122,7 @@
             condenser
             pkgs.nodejs_20
             pkgs.nodePackages.npm
+            pkgs.coreutils  # For realpath
           ];
         };
       in
@@ -120,6 +141,7 @@
           buildInputs = with pkgs; [
             nodejs_20
             nodePackages.npm
+            coreutils  # For realpath
           ];
           
           shellHook = ''

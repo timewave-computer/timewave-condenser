@@ -23,6 +23,9 @@ nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r
 # With custom configuration file
 nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -c /path/to/config.json -o /path/to/output
 
+# Enable verbose output for debugging
+nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -o /path/to/output --verbose
+
 # Change output format (markdown, plain, xml)
 nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -f plain -o /path/to/output
 
@@ -31,7 +34,19 @@ nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r
 
 # Show help
 nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- help
+
+# Show example configuration
+nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- example-config
 ```
+
+## Output Files
+
+By default, Timewave Condenser generates two output files:
+
+1. **Markdown output** (`condensed-output.md`) - Suitable for viewing in any markdown editor
+2. **XML output** (`condensed-output.xml`) - Optimized for AI analysis with Claude
+
+The tool automatically handles both formats for you, so you'll get both files in your output directory without any extra configuration.
 
 ## Accessing Private Repositories
 
@@ -65,11 +80,75 @@ timewave-condenser pack -r /path/to/your/repo -o /path/to/output
 
 - `-r, --repository PATH` - Path to the git repository to pack (required)
 - `-c, --config PATH` - Path to a Repomix configuration file (optional)
-- `-o, --output PATH` - Directory where output will be saved (default: ./output)
-- `-f, --format FORMAT` - Output format: markdown, plain, xml (default: markdown)
+- `-o, --output PATH` - Directory where output will be saved (required)
+- `-f, --format FORMAT` - Output format: markdown, plain, xml (default: outputs both markdown and xml)
 - `--compress` - Enable code compression
 - `--remove-comments` - Remove comments from code
 - `--no-security-check` - Disable security check
+- `--verbose` - Show detailed output for debugging
+
+## Configuration
+
+You can customize behavior with a configuration file. If you don't provide one, a default configuration is automatically created.
+
+To see an example configuration:
+
+```bash
+nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- example-config
+```
+
+The configuration file allows you to:
+
+- Specify which files to include/exclude
+- Configure output format options
+- Set processing parameters like ignoring empty files or binary files
+- Enable Claude optimization for XML output
+
+Example configuration:
+
+```json
+{
+  "include": [
+    "src/main.py",
+    "src/utils/",
+    "docs/"
+  ],
+  "exclude": [
+    "**/*.test.js",
+    "**/*.spec.ts",
+    "**/node_modules/",
+    "**/.git/"
+  ],
+  "outputs": [
+    {
+      "format": "markdown",
+      "path": "condensed-output.md",
+      "options": {
+        "removeComments": true,
+        "compress": true
+      }
+    },
+    {
+      "format": "xml",
+      "path": "condensed-output.xml",
+      "options": {
+        "removeComments": true,
+        "compress": false,
+        "claudeOptimized": true,
+        "addLineNumbers": true,
+        "separateByLanguage": true
+      }
+    }
+  ],
+  "settings": {
+    "ignoreEmptyFiles": true,
+    "maxFileSize": 1048576,
+    "includeFilePath": true,
+    "skipBinaryFiles": true,
+    "securityCheck": true
+  }
+}
+```
 
 ## Development Setup
 
@@ -98,17 +177,27 @@ npm start
 
 This will:
 1. Create a `pack` directory (required by Repomix)
-2. Run Repomix to generate an `output.md` file containing a packed representation of the current repository
+2. Run Repomix to generate output files containing a packed representation of the current repository
 
-To clean up the generated file:
+To clean up the generated files:
 
 ```bash
 npm run clean
 ```
 
-## Configuration
+## Troubleshooting
 
-See the [Repomix documentation](https://repomix.com/guide/usage) for details on configuration options.
+If you encounter issues:
+
+1. Try running with the `--verbose` flag to see detailed output
+2. Make sure your repository path exists and is accessible
+3. If using a custom configuration file, verify that it's valid JSON
+4. If the tool seems to hang, check if the repository is very large (processing may take time)
+5. For Nix-related errors, try clearing the Nix cache:
+   ```bash
+   nix-store --gc
+   nix registry remove git+ssh://git@github.com/timewave-computer/timewave-condenser
+   ```
 
 ## License
 

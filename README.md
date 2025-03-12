@@ -38,7 +38,38 @@ git pull
 nix profile upgrade
 ```
 
-## Usage
+### Using the Permanent Installation
+
+After installing to your Nix profile, you can use the command directly without the `nix run` prefix:
+
+```bash
+# Basic usage after permanent installation
+timewave-condenser pack -r /path/to/your/repo -o /path/to/output
+
+# With custom configuration file
+timewave-condenser pack -r /path/to/your/repo -c /path/to/config.json -o /path/to/output
+
+# Enable verbose output for debugging
+timewave-condenser pack -r /path/to/your/repo -o /path/to/output --verbose
+
+# Change output format (markdown, plain, xml)
+timewave-condenser pack -r /path/to/your/repo -f plain -o /path/to/output
+
+# Enable code compression and comment removal
+timewave-condenser pack -r /path/to/your/repo --compress --remove-comments -o /path/to/output
+
+# Show help
+timewave-condenser help
+
+# Show example configuration
+timewave-condenser example-config
+```
+
+All the same options are available when using the permanent installation, but the command is much shorter and doesn't require downloading the repository each time.
+
+## Usage with Nix Run
+
+If you prefer not to install the tool permanently, you can still use it with `nix run`:
 
 ```bash
 # Basic usage (since timewave-condenser is private, always use SSH)
@@ -85,20 +116,6 @@ This method uses your SSH key to authenticate with GitHub. Make sure you have:
 2. Your SSH key added to your GitHub account
 3. SSH agent running with your key loaded
 
-### Setting up a Convenient Alias
-
-To make using the tool easier, you can add an alias to your shell configuration (~/.bashrc, ~/.zshrc, etc.):
-
-```bash
-# Always use SSH for timewave-condenser
-alias timewave-condenser='nix run git+ssh://git@github.com/timewave-computer/timewave-condenser --'
-```
-
-Then you can simply run:
-
-```bash
-timewave-condenser pack -r /path/to/your/repo -o /path/to/output
-```
 
 ## Options
 

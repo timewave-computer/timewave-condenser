@@ -254,42 +254,93 @@ EOFCONFIG
             cat "./$CONFIG_FILENAME"
           fi
           
-          # Execute repomix using the local installation
-          echo "Running repomix..."
+          # Run first with markdown format
+          echo "Running repomix for markdown output..."
           EXIT_CODE=0
           
           if [ -f "./node_modules/.bin/repomix" ]; then
-            ./node_modules/.bin/repomix pack "$REPO_PATH" --style "$FORMAT" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
+            ./node_modules/.bin/repomix pack "$REPO_PATH" --style "markdown" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
           elif [ -f "./node_modules/repomix/bin/repomix.js" ]; then
-            node "./node_modules/repomix/bin/repomix.js" pack "$REPO_PATH" --style "$FORMAT" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
+            node "./node_modules/repomix/bin/repomix.js" pack "$REPO_PATH" --style "markdown" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
+          else
+            echo "Error: Cannot find repomix executable."
+            exit 1
+          fi
+          
+          # Run again with xml format
+          echo "Running repomix for XML output..."
+          XML_EXIT_CODE=0
+          
+          if [ -f "./node_modules/.bin/repomix" ]; then
+            ./node_modules/.bin/repomix pack "$REPO_PATH" --style "xml" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || XML_EXIT_CODE=$?
+          elif [ -f "./node_modules/repomix/bin/repomix.js" ]; then
+            node "./node_modules/repomix/bin/repomix.js" pack "$REPO_PATH" --style "xml" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || XML_EXIT_CODE=$?
           else
             echo "Error: Cannot find repomix executable."
             exit 1
           fi
           
           # Check if repomix succeeded
-          if [ $EXIT_CODE -eq 0 ]; then
+          if [ $EXIT_CODE -eq 0 ] || [ $XML_EXIT_CODE -eq 0 ]; then
             echo "Pack completed successfully!"
+            echo "Looking for output files..."
             
-            # Check if the output files were created in the current directory instead
+            # List all files in the current directory
+            if [ "$VERBOSE" = true ]; then
+              echo "Files in temporary directory:"
+              ls -la
+            fi
+            
+            # Check for Markdown output files
             if [ -f "./condensed-output.md" ]; then
-              echo "Found output file in current directory, copying to output directory..."
+              echo "Found Markdown output file in current directory, copying to output directory..."
               cp "./condensed-output.md" "$MD_OUTPUT_FILE"
-            fi
-            
-            if [ -f "./condensed-output.xml" ]; then
-              echo "Found output file in current directory, copying to output directory..."
-              cp "./condensed-output.xml" "$XML_OUTPUT_FILE"
-            fi
-            
-            # Look for files in the current directory and copy them to the output directory
-            if [ -f "./repomix-output.md" ]; then
-              echo "Found default output file, copying to output directory..."
+            elif [ -f "./repomix-output.md" ]; then
+              echo "Found default Markdown output file, copying to output directory..."
               cp "./repomix-output.md" "$MD_OUTPUT_FILE"
             fi
             
+            # Check for XML output files
+            if [ -f "./condensed-output.xml" ]; then
+              echo "Found XML output file in current directory, copying to output directory..."
+              cp "./condensed-output.xml" "$XML_OUTPUT_FILE"
+            elif [ -f "./repomix-output.xml" ]; then
+              echo "Found default XML output file, copying to output directory..."
+              cp "./repomix-output.xml" "$XML_OUTPUT_FILE"
+            fi
+            
+            # Look for any other XML files if none found yet
+            if [ ! -f "$XML_OUTPUT_FILE" ]; then
+              echo "Looking for any XML files in the temp directory..."
+              XML_FILES=$(find . -name "*.xml" -type f)
+              if [ -n "$XML_FILES" ]; then
+                FIRST_XML=$(echo "$XML_FILES" | head -n 1)
+                echo "Found XML file: $FIRST_XML, copying to output directory..."
+                cp "$FIRST_XML" "$XML_OUTPUT_FILE"
+              fi
+            fi
+            
+            # Last resort: try to generate XML on the fly from the markdown
+            if [ -f "$MD_OUTPUT_FILE" ] && [ ! -f "$XML_OUTPUT_FILE" ]; then
+              echo "Generating XML file from the Markdown content..."
+              # Create a simple XML wrapper around the markdown content
+              cat > "$XML_OUTPUT_FILE" << EOL
+<?xml version="1.0" encoding="UTF-8"?>
+<repository language="mixed">
+<file name="repository-content.md" language="markdown">
+<![CDATA[
+$(cat "$MD_OUTPUT_FILE")
+]]>
+</file>
+</repository>
+EOL
+              echo "Generated XML file at $XML_OUTPUT_FILE"
+            fi
+            
             # Check if the files now exist in the output directory
+            FOUND_FILES=false
             if [ -f "$MD_OUTPUT_FILE" ] || [ -f "$XML_OUTPUT_FILE" ]; then
+              FOUND_FILES=true
               echo "Output files:"
               if [ -f "$MD_OUTPUT_FILE" ]; then
                 echo "  - $MD_OUTPUT_FILE (Markdown format)"
@@ -297,15 +348,21 @@ EOFCONFIG
               if [ -f "$XML_OUTPUT_FILE" ]; then
                 echo "  - $XML_OUTPUT_FILE (XML format optimized for Claude)"
               fi
-            else
-              echo "Warning: No output files were found in the output directory."
+            fi
+            
+            if [ "$FOUND_FILES" = false ]; then
+              echo "Warning: No output files were found!"
               echo "Repomix may have created files in a different location."
-              echo "Searching for output files in the current directory..."
-              ls -la
+              echo "Searching for all files in the current directory..."
+              find . -type f | grep -v "node_modules" | sort
             fi
           else
-            echo "Error: Repomix failed with exit code $EXIT_CODE"
-            exit $EXIT_CODE
+            echo "Error: Repomix failed with exit codes: Markdown=$EXIT_CODE, XML=$XML_EXIT_CODE"
+            if [ $EXIT_CODE -ne 0 ]; then
+              exit $EXIT_CODE
+            else
+              exit $XML_EXIT_CODE
+            fi
           fi
         '';
 

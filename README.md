@@ -11,6 +11,14 @@ You can run Timewave Condenser with a single command using Nix with flakes enabl
 nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -o /path/to/output
 ```
 
+## Features
+
+- **Repository Packing**: Condense entire git repositories into single Markdown and XML files
+- **AI Summaries**: Generate AI-powered summaries of your codebase using Claude or OpenAI
+- **Format Options**: Output in Markdown, XML, or plain text formats
+- **Customizable**: Configure which files to include/exclude, output options, and more
+- **Claude Optimization**: XML output is optimized for analysis by Claude AI
+
 ## Permanent Installation
 
 For better performance and convenience, you can install Timewave Condenser permanently instead of downloading the source code each time:
@@ -78,6 +86,9 @@ nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r
 # With custom configuration file
 nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -c ./my-config.json -o /path/to/output
 
+# Generate AI summary from a packed repository
+nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- summarize -i /path/to/condensed-output.xml -o /path/to/summaries
+
 # Enable verbose output for debugging
 nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -o /path/to/output --verbose
 
@@ -119,7 +130,7 @@ This method uses your SSH key to authenticate with GitHub. Make sure you have:
 
 ## Options
 
-- `-r, --repository PATH` - Path to the git repository to pack (required)
+- `-r, --repository PATH` - Path to the git repository to pack (required for pack command)
 - `-c, --config PATH` - Path to a Repomix configuration file (optional)
 - `-o, --output PATH` - Directory where output will be saved (required)
 - `-f, --format FORMAT` - Output format: markdown, plain, xml (default: outputs both markdown and xml)
@@ -127,6 +138,67 @@ This method uses your SSH key to authenticate with GitHub. Make sure you have:
 - `--remove-comments` - Remove comments from code
 - `--no-security-check` - Disable security check
 - `--verbose` - Show detailed output for debugging
+
+### Summarize Command Options
+
+- `-i, --input PATH` - Input XML file path (required)
+- `-o, --output PATH` - Output directory for summaries (required)
+- `-p, --provider STRING` - AI provider to use (claude, openai) (default: claude)
+- `--max-tokens NUMBER` - Maximum tokens for AI response (default: 4000)
+- `--system-prompt STRING` - Custom system prompt for AI
+- `--api-key STRING` - API key for AI provider (can also use CLAUDE_API_KEY or OPENAI_API_KEY env vars)
+
+## AI Summaries
+
+Timewave Condenser can generate AI-powered summaries of your codebase. After packing a repository, you can use the `summarize` command to create comprehensive overviews of your code.
+
+```bash
+# Generate an AI summary (requires API key)
+export CLAUDE_API_KEY=your_api_key_here
+timewave-condenser summarize -i ./output/condensed-output.xml -o ./summaries
+```
+
+This generates two summary files:
+- `summary.md` - Markdown overview of your codebase
+- `summary.xml` - Structured XML summary
+
+For more details, see [AI Summary Documentation](./ai-summary.md).
+
+### Setting Up API Keys
+
+The `summarize` command requires an API key from either Anthropic (Claude) or OpenAI. Here's how to set up each:
+
+#### Claude API Key
+
+1. Sign up for an account at [Anthropic](https://console.anthropic.com/)
+2. Navigate to "API Keys" in your account settings
+3. Create a new API key
+4. Use the key by either:
+   ```bash
+   # Setting an environment variable (recommended)
+   export CLAUDE_API_KEY=your_api_key_here
+   timewave-condenser summarize -i ./input.xml -o ./output
+   
+   # Or providing it directly (less secure)
+   timewave-condenser summarize -i ./input.xml -o ./output --api-key "your_api_key_here"
+   ```
+
+#### OpenAI API Key
+
+1. Sign up for an account at [OpenAI](https://platform.openai.com/)
+2. Navigate to "API Keys" in your account settings
+3. Create a new API key
+4. Use the key by either:
+   ```bash
+   # Setting an environment variable (recommended)
+   export OPENAI_API_KEY=your_api_key_here
+   timewave-condenser summarize -i ./input.xml -o ./output -p openai
+   
+   # Or providing it directly (less secure)
+   timewave-condenser summarize -i ./input.xml -o ./output -p openai --api-key "your_api_key_here"
+   ```
+
+> **Security Note**: Avoid hardcoding API keys in scripts or committing them to version control. Environment variables or secure credential storage are recommended.
 
 ## Configuration
 

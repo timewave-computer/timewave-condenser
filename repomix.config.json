@@ -1,0 +1,6 @@
+{
+  "output": {
+    "format": "markdown", 
+    "targetPath": "./output.md"
+  }
+} 

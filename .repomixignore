@@ -1,0 +1,37 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+*.min.js
+
+# Development tools and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment and configuration
+.env
+.env.*
+.npmrc
+
+# Logs
+logs/
+*.log
+
+# Repomix output files
+output.md
+
+# Nix
+.direnv/
+result
+result-*
+
+# Misc
+.DS_Store
+Thumbs.db 

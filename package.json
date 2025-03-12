@@ -1,0 +1,19 @@
+{
+  "name": "repomix-hello-world",
+  "version": "1.0.0",
+  "description": "A hello world example for Repomix",
+  "main": "hello-repomix.js",
+  "type": "module",
+  "scripts": {
+    "prestart": "mkdir -p pack",
+    "start": "npx repomix pack . -o output.md",
+    "clean": "rm -f output.md"
+  },
+  "dependencies": {
+    "repomix": "^0.2.36"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "private": true
+} 

@@ -1,221 +1,115 @@
 {
-  description = "A Repomix-based repository condenser";
+  description = "A minimal Repomix-based repository condenser";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs }:
     let
-      # Define systems we want to support
-      supportedSystems = [
-        "x86_64-linux"
-        "aarch64-linux"
-        "x86_64-darwin"
-        "aarch64-darwin"
-      ];
-
-      # Helper function to generate outputs for all supported systems
-      forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems (system: f system);
-
-      # Generate output for a specific system
-      outputsForSystem = system:
-        let
-          pkgs = nixpkgs.legacyPackages.${system};
-            
-          # Create the condenser script
-          condenser = pkgs.writeScriptBin "timewave-condenser" ''
-            #!/usr/bin/env bash
-            set -euo pipefail
-
-            # Usage information function
-            usage() {
-              echo "Timewave Condenser - A tool to pack git repositories using Repomix"
-              echo ""
-              echo "Usage: timewave-condenser [COMMAND] [OPTIONS]"
-              echo ""
-              echo "Commands:"
-              echo "  pack     Pack a repository (default)"
-              echo "  help     Show this help message"
-              echo ""
-              echo "Options for 'pack':"
-              echo "  -r, --repository PATH    Path to the git repository to pack (required)"
-              echo "  -c, --config PATH        Path to a Repomix config file (optional)"
-              echo "  -o, --output PATH        Path where output files will be placed (default: ./output)"
-              echo "  -f, --format FORMAT      Output format: markdown, plain, xml (default: markdown)"
-              echo "  --compress               Enable code compression"
-              echo "  --remove-comments        Remove comments from code"
-              echo "  --no-security-check      Disable security check"
-              echo ""
-              echo "Examples:"
-              echo "  timewave-condenser pack -r ~/projects/myrepo -o ~/outputs"
-              echo "  timewave-condenser pack -r ~/projects/myrepo -c ~/repomix-config.json -f plain"
-              echo ""
-              echo "Running from GitHub (Nix only):"
-              echo "  # For public repositories:"
-              echo "  nix run github:timewave-computer/timewave-condenser -- pack -r ~/projects/myrepo -o ~/outputs"
-              echo ""
-              echo "  # For private repositories (using SSH):"
-              echo "  nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r ~/projects/myrepo -o ~/outputs"
-              echo ""
-              exit 1
-            }
-
-            # Default values
-            COMMAND="pack"
-            REPO_PATH=""
-            CONFIG_PATH=""
-            OUTPUT_PATH="./output"
-            FORMAT="markdown"
-            COMPRESS=0
-            REMOVE_COMMENTS=0
-            SECURITY_CHECK=1
-
-            # Parse command if present
-            if [[ $# -gt 0 && ! "$1" =~ ^- ]]; then
-              COMMAND="$1"
-              shift
-            fi
-
-            # Show help if requested
-            if [[ "$COMMAND" == "help" ]]; then
-              usage
-            fi
-
-            # Ensure pack is a valid command
-            if [[ "$COMMAND" != "pack" ]]; then
-              echo "Error: Unknown command '$COMMAND'"
-              usage
-            fi
-
-            # Parse arguments
-            while [[ $# -gt 0 ]]; do
-              case "$1" in
-                -r|--repository)
-                  REPO_PATH="$2"
-                  shift 2
-                  ;;
-                -c|--config)
-                  CONFIG_PATH="$2"
-                  shift 2
-                  ;;
-                -o|--output)
-                  OUTPUT_PATH="$2"
-                  shift 2
-                  ;;
-                -f|--format)
-                  FORMAT="$2"
-                  shift 2
-                  ;;
-                --compress)
-                  COMPRESS=1
-                  shift
-                  ;;
-                --remove-comments)
-                  REMOVE_COMMENTS=1
-                  shift
-                  ;;
-                --no-security-check)
-                  SECURITY_CHECK=0
-                  shift
-                  ;;
-                *)
-                  echo "Error: Unknown option '$1'"
-                  usage
-                  ;;
-              esac
-            done
-
-            # Validate required arguments
-            if [[ -z "$REPO_PATH" ]]; then
-              echo "Error: Repository path (-r, --repository) is required"
-              usage
-            fi
-
-            # Ensure the repository path exists
-            if [[ ! -d "$REPO_PATH" ]]; then
-              echo "Error: Repository path '$REPO_PATH' does not exist or is not a directory"
-              exit 1
-            fi
-
-            # Ensure the output directory exists
-            mkdir -p "$OUTPUT_PATH"
-            
-            # Repomix requires a pack directory to exist
-            mkdir -p "$REPO_PATH/pack"
-
-            # Build the command
-            CMD="npx repomix pack \"$REPO_PATH\" -o \"$OUTPUT_PATH/output.$FORMAT\" --style $FORMAT"
-
-            # Add optional parameters
-            if [[ -n "$CONFIG_PATH" ]]; then
-              CMD="$CMD --config \"$CONFIG_PATH\""
-            fi
-
-            if [[ $COMPRESS -eq 1 ]]; then
-              CMD="$CMD --compress"
-            fi
-
-            if [[ $REMOVE_COMMENTS -eq 1 ]]; then
-              CMD="$CMD --remove-comments"
-            fi
-
-            if [[ $SECURITY_CHECK -eq 0 ]]; then
-              CMD="$CMD --no-security-check"
-            fi
-
-            # Execute the command
-            echo "Running: $CMD"
-            eval "$CMD"
-
-            echo ""
-            echo "Pack completed successfully! Output saved to: $OUTPUT_PATH/output.$FORMAT"
-          '';
-        in
-        {
-          # The full package
-          packages.default = pkgs.symlinkJoin {
-            name = "timewave-condenser";
-            paths = [
-              condenser
-              pkgs.nodejs_20
-              pkgs.nodePackages.npm
-            ];
-          };
-
-          # The app definition
-          apps.default = {
-            type = "app";
-            program = "${condenser}/bin/timewave-condenser";
-          };
-
-          # Development shell
-          devShells.default = pkgs.mkShell {
-            buildInputs = with pkgs; [
-              nodejs_20
-              nodePackages.npm
-            ];
-
-            shellHook = ''
-              echo "Repomix development environment"
-              echo "Installing local dependencies..."
-              npm install
-              # Add node_modules/.bin to PATH to use locally installed binaries
-              export PATH="$PWD/node_modules/.bin:$PATH"
-              echo "Dependencies installed. You can run your script with 'npm start'"
-            '';
-          };
-        };
+      # Define for all standard systems
+      allSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      
+      # For each system
+      forAllSystems = f: nixpkgs.lib.genAttrs allSystems (system: f system);
+      
+      # Get packages for a system
+      packagesFor = system: nixpkgs.legacyPackages.${system};
     in
     {
-      # Generate outputs for each supported system
-      packages = forAllSystems (system: outputsForSystem system).packages;
-      apps = forAllSystems (system: outputsForSystem system).apps;
-      devShells = forAllSystems (system: outputsForSystem system).devShells;
+      # Simple packages
+      packages = forAllSystems (system: 
+        let pkgs = packagesFor system; in {
+          default = pkgs.writeShellScriptBin "timewave-condenser" ''
+            #!/usr/bin/env bash
+            set -euo pipefail
+            
+            if [ "$1" = "help" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+              echo "Timewave Condenser - A tool to pack git repositories using Repomix"
+              echo ""
+              echo "Usage: timewave-condenser pack -r REPO_PATH -o OUTPUT_PATH [OPTIONS]"
+              echo ""
+              echo "Options:"
+              echo "  -r, --repository PATH    Repository path (required)"
+              echo "  -o, --output PATH        Output path (required)"
+              echo "  -c, --config PATH        Config file path"
+              echo "  -f, --format FORMAT      Output format (markdown, plain, xml)"
+              echo "  --compress               Enable compression"
+              echo "  --remove-comments        Remove comments"
+              echo "  --no-security-check      Disable security check"
+              exit 0
+            fi
+            
+            # Ensure NPM and Node are available
+            export PATH="${pkgs.nodejs_20}/bin:${pkgs.nodePackages.npm}/bin:$PATH"
+            
+            # Parse arguments
+            REPO_PATH=""
+            OUTPUT_PATH=""
+            FORMAT="markdown"
+            CONFIG=""
+            COMPRESS=""
+            REMOVE_COMMENTS=""
+            NO_SECURITY_CHECK=""
+            
+            while [[ $# -gt 0 ]]; do
+              case "$1" in
+                pack) shift ;;
+                -r|--repository) REPO_PATH="$2"; shift 2 ;;
+                -o|--output) OUTPUT_PATH="$2"; shift 2 ;;
+                -f|--format) FORMAT="$2"; shift 2 ;;
+                -c|--config) CONFIG="--config $2"; shift 2 ;;
+                --compress) COMPRESS="--compress"; shift ;;
+                --remove-comments) REMOVE_COMMENTS="--remove-comments"; shift ;;
+                --no-security-check) NO_SECURITY_CHECK="--no-security-check"; shift ;;
+                *) echo "Unknown argument: $1"; exit 1 ;;
+              esac
+            done
+            
+            if [ -z "$REPO_PATH" ]; then
+              echo "Error: Repository path is required (-r, --repository)"
+              exit 1
+            fi
+            
+            if [ -z "$OUTPUT_PATH" ]; then
+              echo "Error: Output path is required (-o, --output)"
+              exit 1
+            fi
+            
+            if [ ! -d "$REPO_PATH" ]; then
+              echo "Error: Repository path '$REPO_PATH' doesn't exist"
+              exit 1
+            fi
+            
+            # Create required directories
+            mkdir -p "$OUTPUT_PATH"
+            mkdir -p "$REPO_PATH/pack"
+            
+            # Install repomix if needed
+            if ! command -v repomix &> /dev/null; then
+              echo "Installing repomix..."
+              npm install -g repomix
+            fi
+            
+            # Run repomix
+            echo "Running repomix..."
+            repomix pack "$REPO_PATH" -o "$OUTPUT_PATH/output.$FORMAT" --style "$FORMAT" $CONFIG $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK
+            
+            echo "Pack completed successfully! Output saved to: $OUTPUT_PATH/output.$FORMAT"
+          '';
+        }
+      );
       
-      # Aliases for compatibility
-      defaultPackage = forAllSystems (system: outputsForSystem system).packages.default;
-      defaultApp = forAllSystems (system: outputsForSystem system).apps.default;
+      # Simple apps that directly reference the scripts
+      apps = forAllSystems (system: {
+        default = {
+          type = "app";
+          program = "${self.packages.${system}.default}/bin/timewave-condenser";
+        };
+      });
+      
+      # Legacy attributes for compatibility
+      defaultPackage = forAllSystems (system: self.packages.${system}.default);
+      defaultApp = forAllSystems (system: self.apps.${system}.default);
     };
 }

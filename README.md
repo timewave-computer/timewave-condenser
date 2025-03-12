@@ -1,23 +1,47 @@
 # Timewave Condenser
 
-A powerful tool that uses [Repomix](https://github.com/yamadashy/repomix) to condense Git repositories into single files for AI analysis.
+A tool that uses [Repomix](https://github.com/yamadashy/repomix) to condense Git repositories into single files for AI analysis.
 
 ## Quick Start
 
-You can run Timewave Condenser directly from GitHub with a single command (requires [Nix](https://nixos.org/download.html) with flakes enabled):
+You can run Timewave Condenser with a single command using Nix with flakes enabled:
 
 ```bash
-# For public repositories
-nix run github:timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -o /path/to/output
-
-# For private repositories (using SSH)
+# Since timewave-condenser is a private repository, always use SSH:
 nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -o /path/to/output
+```
+
+## Permanent Installation
+
+For better performance and convenience, you can install Timewave Condenser permanently instead of downloading the source code each time:
+
+```bash
+# 1. Clone the repository to a permanent location
+git clone git@github.com:timewave-computer/timewave-condenser.git ~/tools/timewave-condenser
+
+# 2. Install it to your Nix profile
+cd ~/tools/timewave-condenser
+nix profile install .#default
+
+# Now you can use the 'timewave-condenser' command directly
+timewave-condenser pack -r /path/to/your/repo -o /path/to/output
+```
+
+To update the tool when new changes are available:
+
+```bash
+# Pull the latest changes
+cd ~/tools/timewave-condenser
+git pull
+
+# Update your Nix profile installation
+nix profile upgrade
 ```
 
 ## Usage
 
 ```bash
-# Basic usage (private repo via SSH)
+# Basic usage (since timewave-condenser is private, always use SSH)
 nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -o /path/to/output
 
 # With custom configuration file
@@ -48,25 +72,25 @@ By default, Timewave Condenser generates two output files:
 
 The tool automatically handles both formats for you, so you'll get both files in your output directory without any extra configuration.
 
-## Accessing Private Repositories
+## SSH Authentication
 
-If the timewave-condenser repository is private, you need to use SSH authentication:
+Since timewave-condenser is a private repository, SSH authentication is required to access it:
 
 ```bash
 nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- [commands]
 ```
 
-This method uses your SSH key to authenticate with GitHub, which is necessary for private repositories.
+This method uses your SSH key to authenticate with GitHub. Make sure you have:
+1. SSH access to the timewave-computer organization
+2. Your SSH key added to your GitHub account
+3. SSH agent running with your key loaded
 
 ### Setting up a Convenient Alias
 
 To make using the tool easier, you can add an alias to your shell configuration (~/.bashrc, ~/.zshrc, etc.):
 
 ```bash
-# For public repos
-alias timewave-condenser='nix run github:timewave-computer/timewave-condenser --'
-
-# For private repos via SSH
+# Always use SSH for timewave-condenser
 alias timewave-condenser='nix run git+ssh://git@github.com/timewave-computer/timewave-condenser --'
 ```
 

@@ -3,24 +3,21 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, flake-utils }:
     let
       # Define for all standard systems
       allSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       
-      # For each system
-      forAllSystems = f: nixpkgs.lib.genAttrs allSystems (system: f system);
-      
-      # Get packages for a system
-      packagesFor = system: nixpkgs.legacyPackages.${system};
-    in
-    {
-      # Simple packages
-      packages = forAllSystems (system: 
-        let pkgs = packagesFor system; in {
-          default = pkgs.writeShellScriptBin "timewave-condenser" ''
+      # Create outputs for each system
+      perSystem = system:
+        let 
+          pkgs = nixpkgs.legacyPackages.${system};
+          
+          # The condenser script
+          condenser = pkgs.writeShellScriptBin "timewave-condenser" ''
             #!/usr/bin/env bash
             set -euo pipefail
             
@@ -97,19 +94,52 @@
             
             echo "Pack completed successfully! Output saved to: $OUTPUT_PATH/output.$FORMAT"
           '';
-        }
-      );
-      
-      # Simple apps that directly reference the scripts
-      apps = forAllSystems (system: {
-        default = {
-          type = "app";
-          program = "${self.packages.${system}.default}/bin/timewave-condenser";
+        in
+        {
+          # Define package
+          packages.default = pkgs.symlinkJoin {
+            name = "timewave-condenser";
+            paths = [
+              condenser
+              pkgs.nodejs_20
+              pkgs.nodePackages.npm
+            ];
+          };
+          
+          # Define app
+          apps.default = flake-utils.lib.mkApp {
+            drv = self.packages.${system}.default;
+            name = "timewave-condenser";
+          };
+          
+          # Legacy attributes
+          defaultPackage = self.packages.${system}.default;
+          defaultApp = self.apps.${system}.default;
+          
+          # Dev shell
+          devShells.default = pkgs.mkShell {
+            buildInputs = with pkgs; [
+              nodejs_20
+              nodePackages.npm
+            ];
+            
+            shellHook = ''
+              echo "Repomix development environment"
+              echo "Installing local dependencies..."
+              npm install
+              # Add node_modules/.bin to PATH to use locally installed binaries
+              export PATH="$PWD/node_modules/.bin:$PATH"
+              echo "Dependencies installed. You can run your script with 'npm start'"
+            '';
+          };
         };
-      });
-      
-      # Legacy attributes for compatibility
-      defaultPackage = forAllSystems (system: self.packages.${system}.default);
-      defaultApp = forAllSystems (system: self.apps.${system}.default);
+    in
+    # Use flake-utils.lib.eachDefaultSystem for better compatibility 
+    flake-utils.lib.eachDefaultSystem perSystem // {
+      # Additional system-specific attributes for direct access (for robustness)
+      packages.aarch64-darwin = perSystem "aarch64-darwin".packages;
+      apps.aarch64-darwin = perSystem "aarch64-darwin".apps;
+      defaultPackage.aarch64-darwin = perSystem "aarch64-darwin".defaultPackage;
+      defaultApp.aarch64-darwin = perSystem "aarch64-darwin".defaultApp;
     };
 }

@@ -106,6 +106,51 @@
             exit 0
           }
           
+          # Create default config file
+          create_default_config() {
+            local config_path="$1"
+            echo "Creating default config file at $config_path"
+            cat > "$config_path" << 'EOF'
+{
+  "include": [
+    "**/*"
+  ],
+  "exclude": [
+    "**/.git/",
+    "**/node_modules/"
+  ],
+  "outputs": [
+    {
+      "format": "markdown",
+      "path": "condensed-output.md",
+      "options": {
+        "removeComments": true,
+        "compress": true
+      }
+    },
+    {
+      "format": "xml",
+      "path": "condensed-output.xml",
+      "options": {
+        "removeComments": true,
+        "compress": false,
+        "claudeOptimized": true,
+        "addLineNumbers": true,
+        "separateByLanguage": true
+      }
+    }
+  ],
+  "settings": {
+    "ignoreEmptyFiles": true,
+    "maxFileSize": 1048576,
+    "includeFilePath": true,
+    "skipBinaryFiles": true,
+    "securityCheck": true
+  }
+}
+EOF
+          }
+          
           # Check for command
           if [ $# -eq 0 ]; then
             print_help
@@ -182,36 +227,51 @@
           echo "Installing repomix..."
           npm install repomix
           
-          # Handle config file if provided
+          # Handle config file
           CONFIG_PARAM=""
           if [ -n "$CONFIG_PATH" ]; then
-            if [ ! -f "$CONFIG_PATH" ]; then
-              echo "Error: Config file not found at $CONFIG_PATH"
-              exit 1
-            fi
-            
-            # Make config file path absolute if it's not already
+            # First, try to normalize the path
+            ABS_CONFIG_PATH="$CONFIG_PATH"
             if [[ "$CONFIG_PATH" != /* ]]; then
-              CONFIG_PATH=$(realpath "$CONFIG_PATH")
+              # If it's a relative path, try to convert it to absolute
+              ABS_CONFIG_PATH=$(realpath "$CONFIG_PATH" 2>/dev/null || echo "$CONFIG_PATH")
             fi
             
-            echo "Using configuration file: $CONFIG_PATH"
-            
-            # Copy the config file to the temporary directory
-            CONFIG_FILENAME=$(basename "$CONFIG_PATH")
-            cp "$CONFIG_PATH" "./$CONFIG_FILENAME"
-            
-            # Use the local copy of the config file
-            CONFIG_PARAM="--config ./$CONFIG_FILENAME"
+            # Check if file exists and is readable
+            if [ -f "$ABS_CONFIG_PATH" ] && [ -r "$ABS_CONFIG_PATH" ]; then
+              echo "Using configuration file: $ABS_CONFIG_PATH"
+              
+              # Copy the config file to the temporary directory
+              CONFIG_FILENAME="repomix.config.json"
+              cp "$ABS_CONFIG_PATH" "./$CONFIG_FILENAME"
+              
+              if [ -f "./$CONFIG_FILENAME" ]; then
+                echo "Successfully copied config file to temporary directory."
+                # Use the local copy of the config file
+                CONFIG_PARAM="--config ./$CONFIG_FILENAME"
+              else
+                echo "Warning: Failed to copy config file. Creating default config instead."
+                create_default_config "./$CONFIG_FILENAME"
+                CONFIG_PARAM="--config ./$CONFIG_FILENAME"
+              fi
+            else
+              echo "Warning: Config file not found or not readable at $ABS_CONFIG_PATH"
+              echo "Creating a default configuration file instead."
+              
+              # Create a default config file
+              CONFIG_FILENAME="repomix.config.json"
+              create_default_config "./$CONFIG_FILENAME"
+              CONFIG_PARAM="--config ./$CONFIG_FILENAME"
+            fi
           fi
           
           # Execute repomix using the local installation
           echo "Running repomix..."
           EXIT_CODE=0
           if [ -f "./node_modules/.bin/repomix" ]; then
-            ./node_modules/.bin/repomix pack "$REPO_PATH" -o "$OUTPUT_PATH/output.$FORMAT" --style "$FORMAT" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
+            ./node_modules/.bin/repomix pack "$REPO_PATH" -o "$OUTPUT_PATH" --style "$FORMAT" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
           elif [ -f "./node_modules/repomix/bin/repomix.js" ]; then
-            node "./node_modules/repomix/bin/repomix.js" pack "$REPO_PATH" -o "$OUTPUT_PATH/output.$FORMAT" --style "$FORMAT" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
+            node "./node_modules/repomix/bin/repomix.js" pack "$REPO_PATH" -o "$OUTPUT_PATH" --style "$FORMAT" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
           else
             echo "Error: Cannot find repomix executable."
             exit 1

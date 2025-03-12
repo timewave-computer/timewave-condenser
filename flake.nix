@@ -77,15 +77,20 @@
           mkdir -p "$OUTPUT_PATH"
           mkdir -p "$REPO_PATH/pack"
           
-          # Install repomix if needed
-          if ! command -v repomix &> /dev/null; then
-            echo "Installing repomix..."
-            npm install -g repomix
-          fi
+          # Install repomix locally (this environment is already ephemeral)
+          echo "Installing repomix..."
+          npm install repomix
           
-          # Run repomix
+          # Execute repomix using the local installation
           echo "Running repomix..."
-          repomix pack "$REPO_PATH" -o "$OUTPUT_PATH/output.$FORMAT" --style "$FORMAT" $CONFIG $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK
+          if [ -f "./node_modules/.bin/repomix" ]; then
+            ./node_modules/.bin/repomix pack "$REPO_PATH" -o "$OUTPUT_PATH/output.$FORMAT" --style "$FORMAT" $CONFIG $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK
+          elif [ -f "./node_modules/repomix/bin/repomix.js" ]; then
+            node "./node_modules/repomix/bin/repomix.js" pack "$REPO_PATH" -o "$OUTPUT_PATH/output.$FORMAT" --style "$FORMAT" $CONFIG $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK
+          else
+            echo "Error: Cannot find repomix executable."
+            exit 1
+          fi
           
           echo "Pack completed successfully! Output saved to: $OUTPUT_PATH/output.$FORMAT"
         '';

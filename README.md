@@ -47,7 +47,7 @@ After installing to your Nix profile, you can use the command directly without t
 timewave-condenser pack -r /path/to/your/repo -o /path/to/output
 
 # With custom configuration file
-timewave-condenser pack -r /path/to/your/repo -c /path/to/config.json -o /path/to/output
+timewave-condenser pack -r /path/to/your/repo -c ./my-config.json -o /path/to/output
 
 # Enable verbose output for debugging
 timewave-condenser pack -r /path/to/your/repo -o /path/to/output --verbose
@@ -76,7 +76,7 @@ If you prefer not to install the tool permanently, you can still use it with `ni
 nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -o /path/to/output
 
 # With custom configuration file
-nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -c /path/to/config.json -o /path/to/output
+nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -c ./my-config.json -o /path/to/output
 
 # Enable verbose output for debugging
 nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- pack -r /path/to/your/repo -o /path/to/output --verbose
@@ -135,8 +135,14 @@ You can customize behavior with a configuration file. If you don't provide one, 
 To see an example configuration:
 
 ```bash
-nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- example-config
+# When using the permanent installation
+timewave-condenser example-config > my-config.json
+
+# Or with nix run
+nix run git+ssh://git@github.com/timewave-computer/timewave-condenser -- example-config > my-config.json
 ```
+
+This will output an example configuration that you can save to a file and customize. By default, the tool looks for a configuration file named `repomix.config.json` in the current directory, but you can specify a different path with the `-c` option.
 
 The configuration file allows you to:
 

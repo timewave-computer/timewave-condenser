@@ -111,7 +111,7 @@
             local config_path="$1"
             local output_dir="$2"
             echo "Creating default config file at $config_path"
-            cat > "$config_path" << EOF
+            cat > "$config_path" << 'EOF'
 {
   "include": [
     "**/*"
@@ -123,7 +123,7 @@
   "outputs": [
     {
       "format": "markdown",
-      "path": "${output_dir}/condensed-output.md",
+      "path": "OUTPUT_DIR_PLACEHOLDER/condensed-output.md",
       "options": {
         "removeComments": true,
         "compress": true
@@ -131,7 +131,7 @@
     },
     {
       "format": "xml",
-      "path": "${output_dir}/condensed-output.xml",
+      "path": "OUTPUT_DIR_PLACEHOLDER/condensed-output.xml",
       "options": {
         "removeComments": true,
         "compress": false,
@@ -150,6 +150,8 @@
   }
 }
 EOF
+            # Replace the placeholder with the actual output directory
+            sed -i.bak "s|OUTPUT_DIR_PLACEHOLDER|$output_dir|g" "$config_path"
           }
           
           # Check for command

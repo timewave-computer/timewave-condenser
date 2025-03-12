@@ -11,17 +11,71 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
+        # Example configuration file
+        exampleConfig = pkgs.writeTextFile {
+          name = "repomix-example-config.json";
+          text = ''
+            {
+              "include": [
+                "src/main.py",
+                "src/utils/",
+                "docs/"
+              ],
+              "exclude": [
+                "**/*.test.js",
+                "**/*.spec.ts",
+                "**/node_modules/",
+                "**/.git/"
+              ],
+              "outputs": [
+                {
+                  "format": "markdown",
+                  "path": "condensed-output.md",
+                  "options": {
+                    "removeComments": true,
+                    "compress": true
+                  }
+                },
+                {
+                  "format": "xml",
+                  "path": "condensed-output.xml",
+                  "options": {
+                    "removeComments": true,
+                    "compress": false,
+                    "claudeOptimized": true,
+                    "addLineNumbers": true,
+                    "separateByLanguage": true
+                  }
+                }
+              ],
+              "settings": {
+                "ignoreEmptyFiles": true,
+                "maxFileSize": 1048576,
+                "includeFilePath": true,
+                "skipBinaryFiles": true,
+                "securityCheck": true
+              }
+            }
+          '';
+        };
+
         # Create the script  
         condenser = pkgs.writeShellScriptBin "timewave-condenser" ''
           #!/usr/bin/env bash
           set -euo pipefail
           
-          if [ "$1" = "help" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+          # Print help message
+          print_help() {
             echo "Timewave Condenser - A tool to pack git repositories using Repomix"
             echo ""
-            echo "Usage: timewave-condenser pack -r REPO_PATH -o OUTPUT_PATH [OPTIONS]"
+            echo "Usage: timewave-condenser COMMAND [OPTIONS]"
             echo ""
-            echo "Options:"
+            echo "Commands:"
+            echo "  pack             Pack a repository"
+            echo "  help             Show this help message"
+            echo "  example-config   Print an example configuration file"
+            echo ""
+            echo "Options for 'pack' command:"
             echo "  -r, --repository PATH    Repository path (required)"
             echo "  -o, --output PATH        Output path (required)"
             echo "  -c, --config PATH        Config file path"
@@ -30,7 +84,42 @@
             echo "  --remove-comments        Remove comments"
             echo "  --no-security-check      Disable security check"
             exit 0
+          }
+          
+          # Print example usage
+          print_example() {
+            echo "Example usage with configuration file:"
+            echo ""
+            echo "1. Create a repomix.config.json file with the following content:"
+            echo ""
+            cat "${exampleConfig}"
+            echo ""
+            echo "2. Run the condenser with the config file:"
+            echo "   timewave-condenser pack -r ./my-repo -o ./output -c ./repomix.config.json"
+            echo ""
+            echo "This will:"
+            echo "- Process only src/main.py, src/utils/ directory, and docs/ directory"
+            echo "- Exclude test files and node_modules"
+            echo "- Create two outputs:"
+            echo "  * A markdown file at './output/condensed-output.md'"
+            echo "  * An XML file optimized for Claude at './output/condensed-output.xml'"
+            exit 0
+          }
+          
+          # Check for command
+          if [ $# -eq 0 ]; then
+            print_help
           fi
+          
+          COMMAND="$1"
+          shift
+          
+          case "$COMMAND" in
+            help) print_help ;;
+            example-config) print_example ;;
+            pack) ;; # Continue with pack command
+            *) echo "Unknown command: $COMMAND"; exit 1 ;;
+          esac
           
           # Parse arguments
           REPO_PATH=""
@@ -43,7 +132,6 @@
           
           while [[ $# -gt 0 ]]; do
             case "$1" in
-              pack) shift ;;
               -r|--repository) REPO_PATH="$2"; shift 2 ;;
               -o|--output) OUTPUT_PATH="$2"; shift 2 ;;
               -f|--format) FORMAT="$2"; shift 2 ;;
@@ -109,6 +197,9 @@
           # Check if repomix succeeded
           if [ $EXIT_CODE -eq 0 ]; then
             echo "Pack completed successfully! Output saved to: $OUTPUT_PATH/output.$FORMAT"
+            if [ -n "$CONFIG" ]; then
+              echo "Note: When using a config file with multiple outputs, the files will be created according to the config."
+            fi
           else
             echo "Error: Repomix failed with exit code $EXIT_CODE"
             exit $EXIT_CODE
@@ -123,6 +214,7 @@
             pkgs.nodejs_20
             pkgs.nodePackages.npm
             pkgs.coreutils  # For realpath
+            exampleConfig   # Include example config
           ];
         };
       in

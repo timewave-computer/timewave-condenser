@@ -83,6 +83,7 @@
             echo "  --compress               Enable compression"
             echo "  --remove-comments        Remove comments"
             echo "  --no-security-check      Disable security check"
+            echo "  --verbose                Show verbose output for debugging"
             exit 0
           }
           
@@ -111,7 +112,7 @@
             local config_path="$1"
             local output_dir="$2"
             echo "Creating default config file at $config_path"
-            cat > "$config_path" << 'EOF'
+            cat > "$config_path" << 'EOFCONFIG'
 {
   "include": [
     "**/*"
@@ -123,7 +124,7 @@
   "outputs": [
     {
       "format": "markdown",
-      "path": "OUTPUT_DIR_PLACEHOLDER/condensed-output.md",
+      "path": "OUTPUTDIR_PLACEHOLDER/condensed-output.md",
       "options": {
         "removeComments": true,
         "compress": true
@@ -131,7 +132,7 @@
     },
     {
       "format": "xml",
-      "path": "OUTPUT_DIR_PLACEHOLDER/condensed-output.xml",
+      "path": "OUTPUTDIR_PLACEHOLDER/condensed-output.xml",
       "options": {
         "removeComments": true,
         "compress": false,
@@ -149,9 +150,9 @@
     "securityCheck": true
   }
 }
-EOF
+EOFCONFIG
             # Replace the placeholder with the actual output directory
-            sed -i.bak "s|OUTPUT_DIR_PLACEHOLDER|$output_dir|g" "$config_path"
+            sed -i.bak "s|OUTPUTDIR_PLACEHOLDER|$output_dir|g" "$config_path"
           }
           
           # Check for command
@@ -177,6 +178,7 @@ EOF
           COMPRESS=""
           REMOVE_COMMENTS=""
           NO_SECURITY_CHECK=""
+          VERBOSE=false
           
           while [[ $# -gt 0 ]]; do
             case "$1" in
@@ -187,6 +189,7 @@ EOF
               --compress) COMPRESS="--compress"; shift ;;
               --remove-comments) REMOVE_COMMENTS="--remove-comments"; shift ;;
               --no-security-check) NO_SECURITY_CHECK="--no-security-check"; shift ;;
+              --verbose) VERBOSE=true; shift ;;
               *) echo "Unknown argument: $1"; exit 1 ;;
             esac
           done
@@ -234,88 +237,71 @@ EOF
           CONFIG_PARAM=""
           HAS_CONFIG=false
           
-          # Define default output file
+          # Define default output files
+          MD_OUTPUT_FILE="$OUTPUT_PATH/condensed-output.md"
+          XML_OUTPUT_FILE="$OUTPUT_PATH/condensed-output.xml"
           DEFAULT_OUTPUT_FILE="$OUTPUT_PATH/output.$FORMAT"
           
-          if [ -n "$CONFIG_PATH" ]; then
-            # First, try to normalize the path
-            ABS_CONFIG_PATH="$CONFIG_PATH"
-            if [[ "$CONFIG_PATH" != /* ]]; then
-              # If it's a relative path, try to convert it to absolute
-              ABS_CONFIG_PATH=$(realpath "$CONFIG_PATH" 2>/dev/null || echo "$CONFIG_PATH")
-            fi
-            
-            # Check if file exists and is readable
-            if [ -f "$ABS_CONFIG_PATH" ] && [ -r "$ABS_CONFIG_PATH" ]; then
-              echo "Using configuration file: $ABS_CONFIG_PATH"
-              
-              # Copy the config file to the temporary directory
-              CONFIG_FILENAME="repomix.config.json"
-              cp "$ABS_CONFIG_PATH" "./$CONFIG_FILENAME"
-              
-              if [ -f "./$CONFIG_FILENAME" ]; then
-                echo "Successfully copied config file to temporary directory."
-                # Use the local copy of the config file
-                CONFIG_PARAM="--config ./$CONFIG_FILENAME"
-                HAS_CONFIG=true
-                
-                # Update the config file to use absolute paths for outputs
-                # This ensures repomix can write to the correct location
-                sed -i.bak "s|\"path\": \"\(.*\)\"|\"path\": \"$OUTPUT_PATH/\1\"|g" "./$CONFIG_FILENAME"
-              else
-                echo "Warning: Failed to copy config file. Creating default config instead."
-                create_default_config "./$CONFIG_FILENAME" "$OUTPUT_PATH"
-                CONFIG_PARAM="--config ./$CONFIG_FILENAME"
-                HAS_CONFIG=true
-              fi
-            else
-              echo "Warning: Config file not found or not readable at $ABS_CONFIG_PATH"
-              echo "Creating a default configuration file instead."
-              
-              # Create a default config file
-              CONFIG_FILENAME="repomix.config.json"
-              create_default_config "./$CONFIG_FILENAME" "$OUTPUT_PATH"
-              CONFIG_PARAM="--config ./$CONFIG_FILENAME"
-              HAS_CONFIG=true
-            fi
+          # Always create a default config file in the temporary directory
+          CONFIG_FILENAME="repomix.config.json"
+          create_default_config "./$CONFIG_FILENAME" "$OUTPUT_PATH"
+          CONFIG_PARAM="--config ./$CONFIG_FILENAME"
+          HAS_CONFIG=true
+          
+          # Show configuration for debugging
+          if [ "$VERBOSE" = true ]; then
+            echo "Using configuration file with content:"
+            cat "./$CONFIG_FILENAME"
           fi
           
           # Execute repomix using the local installation
           echo "Running repomix..."
           EXIT_CODE=0
           
-          if [ "$HAS_CONFIG" = true ]; then
-            # When using a config file, don't specify -o parameter as it's in the config
-            if [ -f "./node_modules/.bin/repomix" ]; then
-              ./node_modules/.bin/repomix pack "$REPO_PATH" --style "$FORMAT" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
-            elif [ -f "./node_modules/repomix/bin/repomix.js" ]; then
-              node "./node_modules/repomix/bin/repomix.js" pack "$REPO_PATH" --style "$FORMAT" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
-            else
-              echo "Error: Cannot find repomix executable."
-              exit 1
-            fi
+          if [ -f "./node_modules/.bin/repomix" ]; then
+            ./node_modules/.bin/repomix pack "$REPO_PATH" --style "$FORMAT" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
+          elif [ -f "./node_modules/repomix/bin/repomix.js" ]; then
+            node "./node_modules/repomix/bin/repomix.js" pack "$REPO_PATH" --style "$FORMAT" $CONFIG_PARAM $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
           else
-            # Without a config file, use the -o parameter with a file path
-            if [ -f "./node_modules/.bin/repomix" ]; then
-              ./node_modules/.bin/repomix pack "$REPO_PATH" -o "$DEFAULT_OUTPUT_FILE" --style "$FORMAT" $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
-            elif [ -f "./node_modules/repomix/bin/repomix.js" ]; then
-              node "./node_modules/repomix/bin/repomix.js" pack "$REPO_PATH" -o "$DEFAULT_OUTPUT_FILE" --style "$FORMAT" $COMPRESS $REMOVE_COMMENTS $NO_SECURITY_CHECK || EXIT_CODE=$?
-            else
-              echo "Error: Cannot find repomix executable."
-              exit 1
-            fi
+            echo "Error: Cannot find repomix executable."
+            exit 1
           fi
           
           # Check if repomix succeeded
           if [ $EXIT_CODE -eq 0 ]; then
             echo "Pack completed successfully!"
-            if [ "$HAS_CONFIG" = true ]; then
-              echo "Output files have been created according to the configuration in $OUTPUT_PATH."
-              echo "The files may include:"
-              echo "  - condensed-output.md (Markdown format)"
-              echo "  - condensed-output.xml (XML format optimized for Claude)"
+            
+            # Check if the output files were created in the current directory instead
+            if [ -f "./condensed-output.md" ]; then
+              echo "Found output file in current directory, copying to output directory..."
+              cp "./condensed-output.md" "$MD_OUTPUT_FILE"
+            fi
+            
+            if [ -f "./condensed-output.xml" ]; then
+              echo "Found output file in current directory, copying to output directory..."
+              cp "./condensed-output.xml" "$XML_OUTPUT_FILE"
+            fi
+            
+            # Look for files in the current directory and copy them to the output directory
+            if [ -f "./repomix-output.md" ]; then
+              echo "Found default output file, copying to output directory..."
+              cp "./repomix-output.md" "$MD_OUTPUT_FILE"
+            fi
+            
+            # Check if the files now exist in the output directory
+            if [ -f "$MD_OUTPUT_FILE" ] || [ -f "$XML_OUTPUT_FILE" ]; then
+              echo "Output files:"
+              if [ -f "$MD_OUTPUT_FILE" ]; then
+                echo "  - $MD_OUTPUT_FILE (Markdown format)"
+              fi
+              if [ -f "$XML_OUTPUT_FILE" ]; then
+                echo "  - $XML_OUTPUT_FILE (XML format optimized for Claude)"
+              fi
             else
-              echo "Output saved to: $DEFAULT_OUTPUT_FILE"
+              echo "Warning: No output files were found in the output directory."
+              echo "Repomix may have created files in a different location."
+              echo "Searching for output files in the current directory..."
+              ls -la
             fi
           else
             echo "Error: Repomix failed with exit code $EXIT_CODE"

@@ -1,0 +1,47 @@
+# Example TOML configuration for timewave-condenser
+
+[general]
+project_name = "My Project"
+default_prompt = "You are a helpful assistant that summarizes codebases. Focus on the architecture, key components, and how they interact."
+
+# Frontend area configuration
+[areas.frontend]
+description = "Frontend components and UI logic"
+included_paths = ["src/components", "src/pages", "src/hooks"]
+excluded_paths = ["src/components/tests", "**/*.test.tsx"]
+prompt = """
+Analyze this frontend code and focus on:
+1. React component hierarchy and relationships
+2. State management approach
+3. UI/UX patterns
+4. Key custom hooks and their purposes
+5. Routing structure
+"""
+
+# Backend area configuration
+[areas.backend]
+description = "Backend services and API endpoints"
+included_paths = ["src/api", "src/services", "src/models"]
+excluded_paths = ["**/*.test.js", "**/*.spec.ts"]
+prompt = """
+Analyze this backend code and focus on:
+1. API endpoint structure and RESTful design
+2. Database models and relationships
+3. Authentication and authorization mechanisms
+4. Error handling patterns
+5. Service architecture and separation of concerns
+"""
+
+# Infrastructure area configuration
+[areas.infrastructure]
+description = "DevOps and infrastructure code"
+included_paths = ["terraform", "docker", "k8s", ".github/workflows"]
+excluded_paths = []
+prompt = """
+Analyze this infrastructure code and focus on:
+1. Deployment architecture
+2. CI/CD pipeline structure
+3. Infrastructure as Code patterns
+4. Environment configuration
+5. Security considerations
+""" 

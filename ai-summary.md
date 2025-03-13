@@ -71,62 +71,64 @@ timewave-condenser summarize -i ./output/condensed-output.xml -o ./summaries -p 
 
 The AI summary feature requires access to either Claude or OpenAI's API services. Here's how to set up API keys for each:
 
-### Claude API Key
+### Claude API Setup
 
-1. **Create an Anthropic Account**:
-   - Visit [Anthropic Console](https://console.anthropic.com/) and sign up for an account
-   - Complete any verification steps required
+#### 1. Create an Anthropic Account
+- Visit [Anthropic Console](https://console.anthropic.com/) and sign up for an account
+- Complete any verification steps required
 
-2. **Generate an API Key**:
-   - In the console, navigate to the "API Keys" section
-   - Click "Create API Key"
-   - Provide a name for your key (e.g., "Timewave Condenser")
-   - Set any usage limits or restrictions if desired
+#### 2. Generate an API Key
+- In the console, navigate to the "API Keys" section
+- Click "Create API Key"
+- Provide a name for your key (e.g., "Timewave Condenser")
+- Set any usage limits or restrictions if desired
 
-3. **Store Your API Key Securely**:
-   - Copy the generated API key (you'll only see it once)
-   - Store it securely, avoiding plain text files
+#### 3. Store Your API Key Securely
+- Copy the generated API key (you'll only see it once)
+- Store it securely, avoiding plain text files
 
-4. **Use Your API Key**:
-   - **Option 1: Environment variable** (recommended):
-     ```bash
-     export CLAUDE_API_KEY=your_api_key_here
-     ```
-     You can add this to your shell profile (e.g., `.bashrc`, `.zshrc`) to make it persistent.
-     
-   - **Option 2: Directly in the command**:
-     ```bash
-     timewave-condenser summarize -i ./input.xml -o ./output --api-key "your_api_key_here"
-     ```
-     Note: This approach may expose your API key in command history and process listings.
+#### 4. Use Your API Key
+- **Option 1: Environment variable** (recommended):
+  ```bash
+  export CLAUDE_API_KEY=your_api_key_here
+  ```
+  You can add this to your shell profile (e.g., `.bashrc`, `.zshrc`) to make it persistent.
+  
+- **Option 2: Directly in the command**:
+  ```bash
+  timewave-condenser summarize -i ./input.xml -o ./output --api-key "your_api_key_here"
+  ```
+  Note: This approach may expose your API key in command history and process listings.
 
-### OpenAI API Key
+### OpenAI API Setup
 
-1. **Create an OpenAI Account**:
-   - Visit [OpenAI Platform](https://platform.openai.com/) and sign up for an account
-   - Add a payment method (API usage will incur charges)
+#### 1. Create an OpenAI Account
+- Visit [OpenAI Platform](https://platform.openai.com/) and sign up for an account
+- Add a payment method (API usage will incur charges)
 
-2. **Generate an API Key**:
-   - In your account, navigate to "API keys"
-   - Click "Create new secret key"
-   - Provide a name for your key
+#### 2. Generate an API Key
+- In your account, navigate to "API keys"
+- Click "Create new secret key"
+- Provide a name for your key
 
-3. **Store Your API Key Securely**:
-   - Copy the generated API key (you'll only see it once)
-   - Store it securely
+#### 3. Store Your API Key Securely
+- Copy the generated API key (you'll only see it once)
+- Store it securely
 
-4. **Use Your API Key**:
-   - **Option 1: Environment variable** (recommended):
-     ```bash
-     export OPENAI_API_KEY=your_api_key_here
-     ```
-     
-   - **Option 2: Directly in the command**:
-     ```bash
-     timewave-condenser summarize -i ./input.xml -o ./output -p openai --api-key "your_api_key_here"
-     ```
+#### 4. Use Your API Key
+- **Option 1: Environment variable** (recommended):
+  ```bash
+  export OPENAI_API_KEY=your_api_key_here
+  ```
+  
+- **Option 2: Directly in the command**:
+  ```bash
+  timewave-condenser summarize -i ./input.xml -o ./output -p openai --api-key "your_api_key_here"
+  ```
 
 ### Security Best Practices
+
+Here are important security considerations when working with API keys:
 
 - **Never hardcode API keys** in scripts or source code
 - **Don't commit API keys** to version control systems
@@ -135,7 +137,8 @@ The AI summary feature requires access to either Claude or OpenAI's API services
 - **Set usage limits** on API keys to prevent unexpected charges
 - **Use environment variables** when possible, loaded from secure sources
 
-Example using a credential manager:
+#### Example with Credential Manager
+
 ```bash
 # Using 1Password CLI
 eval $(op signin)
@@ -143,6 +146,8 @@ export CLAUDE_API_KEY=$(op item get "Claude API Key" --fields label=password)
 ```
 
 ### Troubleshooting API Issues
+
+Common issues and solutions when working with AI APIs:
 
 - **Authentication errors**: Double-check that your API key is correct and properly set
 - **Rate limit errors**: You might be sending too many requests too quickly
@@ -172,6 +177,8 @@ timewave-condenser summarize -i ./output/condensed-output.xml -o ./summaries \
 ```
 
 ## Troubleshooting
+
+Common issues and solutions when using the AI summary feature:
 
 - **API Errors**: If you receive API errors, verify your API key and check that you have sufficient quota with the provider.
 - **File Not Found**: Ensure the XML file path is correct and the file exists.

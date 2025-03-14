@@ -3,29 +3,17 @@ import axios from 'axios';
 import path from 'path';
 import minimist from 'minimist';
 import * as TOML from '@iarna/toml';
-
-// Type definitions for configuration
-interface GeneralConfig {
-  project_name: string;
-  default_prompt: string;
-}
-
-interface AreaConfig {
-  description: string;
-  included_paths: string[];
-  excluded_paths: string[];
-  prompt: string;
-}
-
-interface TOMLConfig {
-  general: GeneralConfig;
-  areas: Record<string, AreaConfig>;
-}
-
-interface SummaryOutput {
-  markdown: string;
-  xml: string;
-}
+import { 
+  TOMLConfig, 
+  GeneralConfig, 
+  AreaConfig, 
+  SummaryOutput,
+  loadTOMLConfig,
+  getSystemPrompt,
+  extractMarkdownSummary,
+  extractXMLSummary,
+  generateFallbackSummaries
+} from './utils';
 
 interface ProviderConfig {
   url: string;
@@ -84,7 +72,13 @@ const providers: Record<string, ProviderConfig> = {
               type: 'file',
               file_path: 'codebase.xml',
               mime_type: 'application/xml',
-              data: fs.readFileSync(args.input, 'base64')
+              data: (() => {
+                try {
+                  return fs.readFileSync(args.input, 'base64');
+                } catch (error) {
+                  throw new Error(`Failed to read input file in base64 format: ${error instanceof Error ? error.message : String(error)}`);
+                }
+              })()
             }
           ]
         }
@@ -143,7 +137,6 @@ ${content}`
 const args = minimist(process.argv.slice(2), {
   string: ['input', 'output', 'provider', 'systemPrompt', 'apiKey', 'config', 'area'],
   boolean: ['verbose'],
-  number: ['maxTokens'],
   default: {
     provider: 'claude',
     maxTokens: 4000,
@@ -161,126 +154,9 @@ const args = minimist(process.argv.slice(2), {
 }) as unknown as Arguments;
 
 /**
- * Load and parse TOML configuration file
- * @param configPath Path to the TOML configuration file
- * @returns Parsed configuration or null if file doesn't exist
- */
-function loadTOMLConfig(configPath: string): TOMLConfig | null {
-  try {
-    if (!fs.existsSync(configPath)) {
-      if (args.verbose) {
-        console.log(`Configuration file not found at ${configPath}`);
-      }
-      return null;
-    }
-    
-    const configContent = fs.readFileSync(configPath, 'utf8');
-    return TOML.parse(configContent) as TOMLConfig;
-  } catch (error) {
-    console.error(`Error parsing TOML configuration: ${error instanceof Error ? error.message : String(error)}`);
-    return null;
-  }
-}
-
-/**
- * Get system prompt from config or fall back to default
- * @param config TOML configuration
- * @param areaName Area name to get prompt for
- * @returns System prompt string
- */
-function getSystemPrompt(config: TOMLConfig | null, areaName?: string): string {
-  // If no config or specified prompt, use the provided prompt
-  if (!config || !areaName) {
-    return args.systemPrompt;
-  }
-  
-  // Get area-specific prompt or fall back to default
-  if (config.areas[areaName]) {
-    return config.areas[areaName].prompt;
-  }
-  
-  return config.general.default_prompt;
-}
-
-/**
- * Extract markdown summary from AI response text
- * @param text AI response text
- * @returns Extracted markdown summary
- */
-function extractMarkdownSummary(text: string): string {
-  try {
-    // If we find markdown code fences, extract that content
-    const markdownMatch = text.match(/```markdown([\s\S]*?)```/) || 
-                         text.match(/```md([\s\S]*?)```/) || 
-                         text.match(/# (.*?)\n([\s\S]*?)(?=\n```xml|<\?xml|$)/);
-    
-    if (markdownMatch) {
-      return markdownMatch[0].startsWith('```') 
-        ? markdownMatch[1].trim() 
-        : markdownMatch[0].trim();
-    }
-    
-    // Just extract the part before any XML
-    const parts = text.split(/<\?xml|```xml/);
-    return parts[0].trim();
-  } catch (error) {
-    console.error('Error extracting markdown summary:', error);
-    return '# Error Extracting Summary\n\nUnable to extract a proper markdown summary from the AI response.';
-  }
-}
-
-/**
- * Extract XML summary from AI response text
- * @param text AI response text
- * @returns Extracted XML summary
- */
-function extractXMLSummary(text: string): string {
-  try {
-    // Try to find XML content in code blocks
-    const xmlMatch = text.match(/```xml([\s\S]*?)```/) || 
-                    text.match(/<\?xml([\s\S]*?)(?=```|$)/);
-    
-    if (xmlMatch) {
-      // Clean up the XML content and ensure it has XML declaration
-      let xml = xmlMatch[0].startsWith('```') 
-        ? xmlMatch[1].trim() 
-        : xmlMatch[0].trim();
-      
-      if (!xml.startsWith('<?xml')) {
-        xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + xml;
-      }
-      return xml;
-    }
-    
-    // If no clear XML section found, create a basic XML summary
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<summary>
-  <error>No structured XML summary could be extracted from the AI response.</error>
-  <raw_response>${text.replace(/[<>&'"]/g, (c: string): string => {
-      const replacements: Record<string, string> = {
-        '<': '&lt;',
-        '>': '&gt;',
-        '&': '&amp;',
-        "'": '&apos;',
-        '"': '&quot;'
-      };
-      return replacements[c] || c;
-    })}</raw_response>
-</summary>`;
-  } catch (error) {
-    console.error('Error extracting XML summary:', error);
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<summary>
-  <error>An error occurred while extracting the XML summary.</error>
-  <details>${error instanceof Error ? error.message : String(error)}</details>
-</summary>`;
-  }
-}
-
-/**
  * Main function to run the summarization process
  */
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   try {
     // Validate input and output
     if (!args.input || !args.output) {
@@ -303,10 +179,18 @@ async function main(): Promise<void> {
       process.exit(1);
     }
     
+    // Verify input file is readable
+    try {
+      fs.accessSync(args.input, fs.constants.R_OK);
+    } catch (error) {
+      console.error(`Error: Input file '${args.input}' is not readable`);
+      process.exit(1);
+    }
+    
     // Load TOML configuration if provided
     let config: TOMLConfig | null = null;
     if (args.config) {
-      config = loadTOMLConfig(args.config);
+      config = loadTOMLConfig(args.config, args.verbose);
       if (args.verbose && config) {
         console.log('Loaded TOML configuration:');
         console.log(`Project: ${config.general.project_name}`);
@@ -317,7 +201,7 @@ async function main(): Promise<void> {
     }
     
     // Get system prompt
-    const systemPrompt = getSystemPrompt(config, args.area);
+    const systemPrompt = getSystemPrompt(config, args.area, args.systemPrompt);
     if (args.verbose) {
       console.log(`Using system prompt: ${systemPrompt}`);
     }
@@ -326,7 +210,7 @@ async function main(): Promise<void> {
     let apiKey = args.apiKey;
     if (!apiKey) {
       if (args.provider === 'claude') {
-        apiKey = process.env.CLAUDE_API_KEY;
+        apiKey = process.env.ANTHROPIC_API_KEY;
       } else if (args.provider === 'openai') {
         apiKey = process.env.OPENAI_API_KEY;
       }
@@ -339,7 +223,13 @@ async function main(): Promise<void> {
     
     // Read the input file
     console.log(`Reading input file: ${args.input}`);
-    const content = fs.readFileSync(args.input, 'utf8');
+    let content: string;
+    try {
+      content = fs.readFileSync(args.input, 'utf8');
+    } catch (error) {
+      console.error(`Error reading input file: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(1);
+    }
     
     // Get provider configuration
     const provider = providers[args.provider];
@@ -358,7 +248,14 @@ async function main(): Promise<void> {
     
     // Prepare request
     console.log(`Sending request to ${args.provider.toUpperCase()} API...`);
-    const requestData = provider.formatRequest(content, systemPrompt, args.maxTokens);
+    let requestData;
+    try {
+      requestData = provider.formatRequest(content, systemPrompt, args.maxTokens);
+    } catch (error) {
+      console.error(`Error preparing request: ${error instanceof Error ? error.message : String(error)}`);
+      generateFallbackSummaries(args.output, error);
+      process.exit(1);
+    }
     
     if (args.verbose) {
       console.log('Request configuration:');
@@ -427,71 +324,27 @@ async function main(): Promise<void> {
     // Catch-all for any other unexpected errors
     console.error('Unexpected error:');
     console.error(error);
+    
+    // Try to generate fallback summaries if possible
+    if (args && args.output) {
+      try {
+        generateFallbackSummaries(args.output, error);
+      } catch (fallbackError) {
+        console.error('Failed to generate fallback summaries:', fallbackError);
+      }
+    }
+    
     process.exit(1);
   }
 }
 
-/**
- * Generate fallback summary files when API request fails
- * @param outputDir Output directory
- * @param error Error object
- */
-function generateFallbackSummaries(outputDir: string, error: any): void {
-  try {
-    console.log('Generating fallback summary files due to API error...');
-    
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const timestamp = new Date().toISOString();
-    
-    // Create fallback markdown summary
-    const markdownContent = `# API Request Error Summary
-
-## Error Details
-
-- **Timestamp**: ${timestamp}
-- **Error**: ${errorMessage}
-
-## Next Steps
-
-Please try again later or check:
-
-1. Your API keys are correct
-2. The API service is available
-3. Your network connection is stable
-4. The input file is valid XML
-
-`;
-    
-    // Create fallback XML summary
-    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<summary>
-  <error>
-    <timestamp>${timestamp}</timestamp>
-    <message>${errorMessage.replace(/[<>&'"]/g, (c: string): string => {
-      const replacements: Record<string, string> = {
-        '<': '&lt;',
-        '>': '&gt;',
-        '&': '&amp;',
-        "'": '&apos;',
-        '"': '&quot;'
-      };
-      return replacements[c] || c;
-    })}</message>
-  </error>
-</summary>`;
-    
-    // Write fallback files
-    fs.writeFileSync(path.join(outputDir, 'summary.md'), markdownContent);
-    fs.writeFileSync(path.join(outputDir, 'summary.xml'), xmlContent);
-    
-    console.log('Fallback summary files created.');
-  } catch (fsError) {
-    console.error('Error creating fallback summary files:', fsError);
-  }
-}
+// Export args for testing purposes
+export { args };
 
 // Run the main function
-main().catch(error => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-}); 
+if (require.main === module) {
+  main().catch(error => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
+} 

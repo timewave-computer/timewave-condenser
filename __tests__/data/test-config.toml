@@ -1,0 +1,39 @@
+[general]
+project_name = "Sample Project"
+default_prompt = "You are a helpful assistant that summarizes TypeScript codebases. Focus on the architecture, key components, and how they interact."
+
+[areas.core]
+description = "Core application components"
+included_paths = ["src/index.ts", "src/components"]
+excluded_paths = ["**/*.test.ts"]
+prompt = """
+Analyze this core application code and focus on:
+1. Main application structure
+2. Component initialization and lifecycle
+3. Key architectural patterns
+4. Error handling approach
+"""
+
+[areas.api]
+description = "API services and endpoints"
+included_paths = ["src/api"]
+excluded_paths = ["**/*.test.ts"]
+prompt = """
+Analyze this API code and focus on:
+1. Service interfaces and implementations
+2. Data models and structures
+3. API endpoint design
+4. Authentication and authorization mechanisms
+"""
+
+[areas.utils]
+description = "Utility functions and helpers"
+included_paths = ["src/utils"]
+excluded_paths = ["**/*.test.ts"]
+prompt = """
+Analyze these utility functions and focus on:
+1. Configuration management
+2. Helper functions and their purposes
+3. Common patterns and abstractions
+4. Reusable components
+""" 

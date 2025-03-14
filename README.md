@@ -1,6 +1,12 @@
 # Timewave Condenser
 
-A tool for summarizing codebases using AI, part of the Continuous Context Update System.
+A tool for summarizing codebases using AI, part of a Continuous Context Sharing System.
+
+## Overview
+
+Timewave Condenser takes XML representations of your codebase and leverages AI models (Claude or OpenAI) to generate comprehensive summaries. These summaries provide insights into your code's architecture, components, and relationships, making it easier to understand complex codebases.
+
+For a deeper understanding of how this tool fits into the larger Continuous Context Update System, please see the [System Overview](./system_overview.md) document.
 
 ## Features
 
@@ -9,20 +15,44 @@ A tool for summarizing codebases using AI, part of the Continuous Context Update
 - Configurable via TOML configuration files
 - Area-specific prompts for different parts of a codebase
 - Robust error handling with fallback summaries
+- Detailed documentation and examples
 
 ## Installation
+
+This project uses Nix for reproducible development environments and CI/CD integration.
 
 ```bash
 # Clone the repository
 git clone https://github.com/timewave-computer/timewave-condenser.git
 cd timewave-condenser
 
-# Install dependencies
-npm install
-
-# Build the TypeScript code
-npm run build
+# Enter the Nix development shell
+nix develop
 ```
+
+The Nix development shell provides all dependencies needed for development and testing. The flake has been simplified to work optimally in both CI environments and for local development after cloning the repository.
+
+### Requirements
+
+- [Nix package manager](https://nixos.org/download.html) with [flakes enabled](https://nixos.wiki/wiki/Flakes)
+
+## Generated Summaries
+
+The tool generates two output files:
+
+1. **Markdown Summary** (`summary.md`): A comprehensive overview of your codebase, including:
+   - The main purpose of the codebase
+   - Key components and their relationships
+   - Important functions and data structures
+   - Overall architecture and design patterns
+   - Notable algorithms or techniques used
+
+2. **XML Summary** (`summary.xml`): A structured summary in XML format, including:
+   - Project metadata (name, purpose, main languages)
+   - Component breakdown
+   - Key files and their purposes
+   - Dependencies
+   - Recommendations for improvements
 
 ## Usage
 
@@ -50,48 +80,50 @@ npm start -- --input=/path/to/input.xml --output=/path/to/output/dir
 
 ### Environment Variables
 
-- `CLAUDE_API_KEY`: API key for Claude
+- `ANTHROPIC_API_KEY`: API key for Claude
 - `OPENAI_API_KEY`: API key for OpenAI
 
-## TOML Configuration
+## API Key Setup
 
-The tool supports TOML configuration files for more advanced usage. Here's an example:
+The AI summary feature requires access to either Claude or OpenAI's API services.
 
-```toml
-[general]
-project_name = "My Project"
-default_prompt = "You are a helpful assistant that summarizes codebases."
+### Claude API Setup
 
-[areas.frontend]
-description = "Frontend components"
-included_paths = ["src/components", "src/pages"]
-excluded_paths = ["src/components/tests"]
-prompt = "Analyze this frontend code and focus on React components and their relationships."
+1. **Create an Anthropic Account**
+   - Visit [Anthropic Console](https://console.anthropic.com/) and sign up
+   - Complete verification steps as required
 
-[areas.backend]
-description = "Backend services"
-included_paths = ["src/services", "src/api"]
-excluded_paths = []
-prompt = "Analyze this backend code and focus on API endpoints and database interactions."
-```
+2. **Generate an API Key**
+   - Navigate to the "API Keys" section
+   - Click "Create API Key"
+   - Name your key (e.g., "Timewave Condenser")
+   - Set usage limits if desired
 
-## Development
+3. **Use Your API Key**
+   - Option 1: Environment variable (recommended):
+     ```bash
+     export ANTHROPIC_API_KEY=your_api_key_here
+     ```
+   - Option 2: Command line parameter:
+     ```bash
+     node dist/summarize.js --input=input.xml --output=./output --apiKey="your_api_key_here"
+     ```
 
-```bash
-# Run in development mode with ts-node
-npm run dev -- --input=/path/to/input.xml --output=/path/to/output/dir
+### OpenAI API Setup
 
-# Build the TypeScript code
-npm run build
-```
+1. **Create an OpenAI Account**
+   - Visit [OpenAI Platform](https://platform.openai.com/) and sign up
+   - Add a payment method
 
-## Output
+2. **Generate an API Key**
+   - Navigate to "API keys"
+   - Click "Create new secret key"
+   - Name your key
 
-The tool generates two output files:
-
-1. `summary.md`: A comprehensive summary in Markdown format
-2. `summary.xml`: A structured summary in XML format
-
-## Error Handling
-
-If the AI API request fails, the tool will generate fallback summary files with error details. 
+3. **Use Your API Key**
+   - Option 1: Environment variable (recommended):
+     ```bash
+     export OPENAI_API_KEY=your_api_key_here
+     ```
+   - Option 2: Command line parameter:
+     ```

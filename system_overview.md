@@ -122,19 +122,50 @@ graph TD;
 - **Automated PR Creation**: The CI/CD pipeline will use GitHub API and authentication mechanisms to create and update PRs in the summary repository.
 - **TOML Configuration Parsing**: The condensation component will parse and use the TOML configuration to determine which sections of the repository to include in summaries and apply the correct AI prompts.
 
-## Open Questions
+## Configuration Maintenance
 
-### Where should the configuration file(s) live?
+To keep the configuration files up-to-date as the codebase evolves, the system will implement an AI-powered directory categorization mechanism that automatically assigns new files and directories to existing categories.
 
-- Should each individual repository maintain its own configuration?
-- Should there be a central configuration in the summary repository?
-- Somewhere else?
+### Automatic Directory Categorization
 
-### How do we ensure the configuration file remains up to date as the codebase evolves?
+When new files or directories are detected in the codebase, the system will:
 
-- Should developers manually update the configuration file when making structural changes?
-- Can AI infer updates to the configuration file based on changes in the codebase?
-- What level of automation is desirable vs. introducing unnecessary complexity?
+1. Analyze the structure, naming patterns, and content of the new files/directories
+2. Compare them against existing categorized directories in the TOML configuration
+3. Use AI to determine the most appropriate category based on:
+   - File/directory naming conventions and paths
+   - File content and purpose
+   - Relationships with other already-categorized files/directories
+   - Code semantics and common architectural patterns
+
+### Implementation Approach
+
+The automatic categorization system will be implemented as follows:
+
+1. **Change Detection**: The CI/CD pipeline will identify new files and directories not yet covered by the configuration.
+
+2. **AI Analysis**: An LLM (Claude or OpenAI) will analyze the new files with a specialized prompt that:
+   - Provides the existing configuration categories and their patterns
+   - Requests classification of new files/directories into existing categories
+   - Asks for confidence scores for each categorization decision
+
+3. **Configuration Update**: The system will automatically update the TOML configuration by:
+   - Adding new paths to the appropriate `included_paths` arrays
+   - Suggesting new exclusion patterns if needed (e.g., for test files)
+   - Creating a PR for manual review if confidence scores are below a threshold
+
+4. **Feedback Loop**: The system will learn from manual corrections to improve future categorization accuracy.
+
+### Configuration Storage
+
+The TOML configuration files will be stored in the summary repository, serving as a central source of truth. This approach:
+
+- Keeps configurations separate from the actual code repositories
+- Allows for centralized management of categorization rules
+- Simplifies the configuration update process
+- Enables version control of configuration changes alongside summary updates
+
+This AI-powered approach eliminates the need for manual configuration updates while maintaining oversight through confidence thresholds and review processes. It ensures that as the codebase grows and evolves, the categorization remains accurate and up-to-date.
 
 This system enables efficient knowledge dissemination for developers while maintaining up-to-date documentation for LLM-based processing.
 
